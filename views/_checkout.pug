@@ -13,17 +13,57 @@ else
       h4 #[strong= msat2milli(invoice.msatoshi)] mBTC
     .row
       .pay.col-sm-8
-        pre= invoice.payreq
+        pre#payreq= invoice.payreq
+        .mb-3
+          button.btn.btn-sm.btn-outline-secondary#copy-btn(type='button', onclick='copyPayreq()') Copy Invoice
+          span#copy-msg.ml-2.text-success.d-none Copied!
+          if conf.mock_charge
+            form.d-inline.ml-2(method='post', action='_invoice/'+invoice.id+'/mock-pay')
+              input(type='hidden', name='_csrf', value=csrf)
+              button.btn.btn-sm.btn-warning(type='submit') [Demo] Simulate Pay
 
         p.small.text-muted
           noscript Your browser has JavaScript turned off. Please refresh the page manually after making the payment.
           span.yesscript #[img(src='_assets/loader.gif', alt='loading')] Awaiting payment.
           |  The invoice expires #[span(data-countdown-to=invoice.expires_at, title=expiry_str) at #{ expiry_str  }].
 
-        p: a.btn.btn-lg.btn-primary(href=`lightning:${invoice.payreq}`) Pay now
+        p: a.btn.btn-lg.btn-primary(href=`lightning:${invoice.payreq}`) Open in Wallet (Pay now)
 
       .qr.col-sm-4.mb-3: img(src=qruri)
 
-  //- long-pull payment updates via <img> reloading hack. not the prettiest, but extremely terse, and it works
-  img.d-none(src='_invoice/'+invoice.id+'/longpoll.png', onerror='this.src=this.src', onload='location.reload()')
+  //- long-pull payment updates via <img> reloading hack with safe retry backoff
+  img.d-none#longpoll-img(src='_invoice/'+invoice.id+'/longpoll.png', onerror='retryLongpoll(this)', onload='location.reload()')
+  script.
+    function copyPayreq() {
+      var el = document.getElementById('payreq');
+      var text = el ? (el.innerText || el.textContent).trim() : '';
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+      function fallbackCopy() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showCopied();
+      }
+    }
+    function showCopied() {
+      var msg = document.getElementById('copy-msg');
+      if (msg) {
+        msg.classList.remove('d-none');
+        setTimeout(function() { msg.classList.add('d-none'); }, 2000);
+      }
+    }
+    function retryLongpoll(img) {
+      setTimeout(function() {
+        var base = img.src.split('?')[0];
+        img.src = base + '?_t=' + Date.now();
+      }, 1500);
+    }
   script(src='_assets/countdown.js')

@@ -1,3 +1,4 @@
+import 'babel-polyfill'
 import fs from 'fs'
 import path from 'path'
 import { msat2milli } from 'fmtbtc'
@@ -6,7 +7,9 @@ import { pwrap, pick, fcurrency, pngPixel, makeQR } from './lib/util'
 // Setup
 const app     = require('express')()
     , conf    = require('./lib/config')(process.argv[2] || process.cwd())
-    , charge  = require('lightning-charge-client')(conf.charge_url, conf.charge_token)
+    , charge  = conf.mock_charge
+        ? require('./lib/mock-charge')()
+        : require('lightning-charge-client')(conf.charge_url, conf.charge_token)
     , files   = require('./lib/files')(conf.directory, conf.default_price, conf.invoice_ttl, conf.files)
     , tokenr  = require('./lib/token')(conf.token_secret)
     , preview = require('./lib/preview')(files, conf.cache_path)
@@ -59,6 +62,14 @@ app.post('/_invoice', pwrap(async (req, res) => {
   })
 }))
 
+// Mock payment trigger for test/demo mode
+if (conf.mock_charge) {
+  app.post('/_invoice/:invoice/mock-pay', pwrap(async (req, res) => {
+    if (charge.mockPay) await charge.mockPay(req.params.invoice)
+    res.redirect(req.get('Referrer') || '.')
+  }))
+}
+
 // Payment updates long-polling via <img> hack
 app.get('/_invoice/:invoice/longpoll.png', pwrap(async (req, res) => {
   const paid = await charge.wait(req.params.invoice, 100)
@@ -82,8 +93,8 @@ app.get('/:rpath(*)', pwrap(async (req, res) => {
   }
 
   else if (invoice) {
-    if (invoice.status == 'paid') res.redirect(escape(file.name) + '?token=' + tokenr.make(invoice, conf.download_ttl))
-    else res.render('file', { ...file, invoice, qruri: await makeQR(invoice) })
+    if (invoice.status == 'paid') res.redirect(encodeURIComponent(file.name) + '?token=' + tokenr.make(invoice, conf.download_ttl))
+    else res.render('file', { ...file, invoice, qruri: await makeQR(invoice), csrf: req.csrfToken() })
   }
 
   else if ('preview' in req.query) await preview.handler(file, res)
@@ -99,7 +110,10 @@ app.use((err, req, res, next) =>
 : next(err))
 
 // Go!
-app.listen(conf.port, conf.host, _ => console.log('FileBazaar serving %s on port %d, browse at %s', conf.directory, conf.port, conf.url))
+app.listen(conf.port, conf.host, _ => {
+  console.log('FileBazaar serving %s on port %d, browse at %s', conf.directory, conf.port, conf.url)
+  if (conf.mock_charge) console.log('Notice: running with Mock Lightning Charge gateway (demo/test mode)')
+})
 
 // strict handling for uncaught promise rejections
 process.on('unhandledRejection', err => { throw err })

@@ -1,3 +1,4 @@
 #!/bin/bash
 [ -f .env ] && source .env
-babel-node src/app.js $@
+export PATH="./node_modules/.bin:$PATH"
+babel-node src/app.js "$@"

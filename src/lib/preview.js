@@ -22,9 +22,16 @@ module.exports = (files, cache_path) => {
   }
 
   const handler = async (file, res) => {
-    const { fullpath } = file, preview_path = await (_gen[fullpath] = _gen[fullpath] || preview(file))
-    delete _gen[fullpath] // @TODO in finally
-    preview_path ? res.sendFile(preview_path) : res.sendStatus(405)
+    const { fullpath } = file
+    try {
+      const preview_path = await (_gen[fullpath] = _gen[fullpath] || preview(file))
+      preview_path ? res.sendFile(preview_path) : res.sendStatus(405)
+    } catch (err) {
+      console.error('Error generating preview for %s:', fullpath, err.message)
+      res.status(500).send('Preview generation failed')
+    } finally {
+      delete _gen[fullpath]
+    }
   }
   const _gen = {}
 

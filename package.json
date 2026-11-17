@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "start": "./start.sh",
+    "test": "node test_runner.js",
     "dist": "babel -d dist src && stylus static/style.styl",
     "prepublishOnly": "npm run dist"
   },

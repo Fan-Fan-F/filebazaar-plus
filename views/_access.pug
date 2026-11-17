@@ -9,9 +9,38 @@ p
   a.btn.btn-primary(href=down_url) Download
   = ' '
   a.btn.btn-secondary(href=view_url) View
+  = ' '
+  button.btn.btn-outline-info#copy-link-btn(type='button', onclick='copyAccessLink()') Copy Access Link
+  span#copy-link-msg.ml-2.text-success.d-none Copied!
 
 p.text-muted.
   Your access will expire #[span(data-countdown-to=access.expiry, title=expiry_str) at #{ expiry_str }].
   Until then, you can return to this page to access the file #[a(href=token_url) using this link].
+
+script.
+  function copyAccessLink() {
+    var link = window.location.origin + window.location.pathname + '?token=' + encodeURIComponent('#{access.token}');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(showLinkCopied).catch(fallbackLinkCopy);
+    } else {
+      fallbackLinkCopy();
+    }
+    function fallbackLinkCopy() {
+      var ta = document.createElement('textarea');
+      ta.value = link;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showLinkCopied();
+    }
+  }
+  function showLinkCopied() {
+    var msg = document.getElementById('copy-link-msg');
+    if (msg) {
+      msg.classList.remove('d-none');
+      setTimeout(function() { msg.classList.add('d-none'); }, 2000);
+    }
+  }
 
 script(src='_assets/countdown.js')

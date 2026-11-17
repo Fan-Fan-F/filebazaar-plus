@@ -1,6 +1,14 @@
 import fs from 'fs-extra'
 import gm from 'gm'
-import { Image, Canvas } from 'canvas'
+
+let Canvas = null, Image = null
+try {
+  const canvasPkg = require('canvas')
+  Canvas = canvasPkg.Canvas
+  Image = canvasPkg.Image
+} catch (e) {
+  // canvas native binding not available, graceful fallback to gm
+}
 
 exports.detect = ({ mime }) => /^image\//.test(mime)
 
@@ -8,9 +16,19 @@ exports.metadata = file => ({ media_type: 'image' })
 
 exports.ext = file => 'png'
 
-exports.preview = async (src, dest) => fs.writeFile(dest, await pixelate(src))
+exports.preview = async (src, dest) => {
+  if (Canvas && Image) {
+    try {
+      const buf = await pixelateCanvas(src)
+      return await fs.writeFile(dest, buf)
+    } catch (err) {
+      console.warn('Canvas rendering error, falling back to gm:', err.message)
+    }
+  }
+  return await pixelateGM(src, dest)
+}
 
-const pixelate = async path => {
+const pixelateCanvas = async path => {
   // load original image
   const img  = new Image
       , buff = img.src = await fs.readFile(path)
@@ -46,6 +64,35 @@ const pixelate = async path => {
   ctx.strokeText('PREVIEW', img.width/2, img.height/2)
 
   return toBuff(canvas)
+}
+
+const pixelateGM = async (src, dest) => {
+  return new Promise((resolve, reject) => {
+    gm(src).size((err, size) => {
+      if (err) return reject(err)
+      const w = (size && size.width) || 600
+          , h = (size && size.height) || 400
+          , halfW = Math.floor(w / 2)
+          , fontSize = Math.max(16, Math.floor(w * 0.08))
+
+      const font = fs.existsSync('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
+        ? '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+        : (fs.existsSync('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+            ? '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' : undefined)
+
+      let g = gm(src)
+        .blur(10, 5)
+        .stroke('red', Math.max(2, Math.floor(h * 0.005)))
+        .drawLine(halfW, 0, halfW, h)
+
+      if (font) g = g.font(font)
+      g.fontSize(fontSize)
+       .stroke('black', 2)
+       .fill('white')
+       .drawText(0, 0, 'PREVIEW', 'Center')
+       .write(dest, e => e ? reject(e) : resolve())
+    })
+  })
 }
 
 const toBuff = (obj, ...a) => new Promise((resolve, reject) => {

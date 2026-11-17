@@ -9,22 +9,48 @@ block header
   h3
     a(href='.') ~
     for d, i in path.split('/')
-      = ' / '
-      a(href=url_ancs.slice(0, i+1).join('/'))= d
+      if d
+        = ' / '
+        a(href=url_ancs.slice(0, i+1).join('/'))= d
 
 block content
   if files.length
-    table.table.table-striped
+    .mb-3.row
+      .col-md-6
+        input.form-control#dir-search(type='text', placeholder='Filter files by name or type...', oninput='filterFiles(this.value)')
+      .col-md-6.text-md-right.text-muted.pt-2
+        span#file-count #{files.length} item(s) in this directory
+
+    table.table.table-striped#dir-table
       thead: tr
         th Name
         th Type
         th Size
         th Price
       tbody: for file in files
-        tr
+        tr.dir-row(data-name=file.name.toLowerCase(), data-type=(file.type == 'dir' ? 'directory' : (file.mime || '')))
           td: a(href=file.urlpath)= file.name
           td= file.type == 'dir' ? 'directory' : file.mime || '-'
           td= file.size ? prettybytes(file.size) : '-'
           td= file.price ? fcurrency(file.price) : '-'
+
+    script.
+      function filterFiles(query) {
+        var q = (query || '').toLowerCase().trim();
+        var rows = document.querySelectorAll('.dir-row');
+        var visible = 0;
+        rows.forEach(function(row) {
+          var name = row.getAttribute('data-name') || '';
+          var type = row.getAttribute('data-type') || '';
+          if (!q || name.indexOf(q) !== -1 || type.indexOf(q) !== -1) {
+            row.style.display = '';
+            visible++;
+          } else {
+            row.style.display = 'none';
+          }
+        });
+        var countEl = document.getElementById('file-count');
+        if (countEl) countEl.innerText = visible + ' item(s) showing';
+      }
   else
     p.text-muted This directory is empty.

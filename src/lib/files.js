@@ -23,9 +23,10 @@ module.exports = (base, default_price, invoice_ttl, files_attr) => {
         , ext      = fileExt(name)
         , attr     = files_attr[relpath] || {}
 
-    if (/^\.\.\//.test(relpath) || reIgnore.test(name)) throw new Error('forbidden')
+    const parts = relpath ? relpath.split(/[\\/]/) : []
+    if (/^\.\.(\/|$)/.test(relpath) || parts.some(p => reIgnore.test(p))) throw new Error('forbidden')
 
-    const file = { fullpath, path: relpath, urlpath: escape(relpath), name, ext, dirname }
+    const file = { fullpath, path: relpath, urlpath: encodeURI(relpath), name, ext, dirname }
         , stat = await fs.stat(fullpath)
 
     return stat.isDirectory() ? { ...file, type: 'dir', files: !shallow && await listFiles(fullpath) }

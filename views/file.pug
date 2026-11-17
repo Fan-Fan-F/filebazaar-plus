@@ -4,7 +4,7 @@ append vars
   - title += ': ' + path
 
 append head
-  if attr.css
+  if attr && attr.css
     style!= attr.css
 
 block header
@@ -13,8 +13,9 @@ block header
     = ' / '
     - url_ancs = urlpath.split('/').slice(0, -1)
     for d, i in path.split('/').slice(0, -1)
-      a(href=url_ancs.slice(0, i+1).join('/'))= d
-      = ' / '
+      if d
+        a(href=url_ancs.slice(0, i+1).join('/'))= d
+        = ' / '
 
   h1= name
   h4

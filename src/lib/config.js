@@ -21,6 +21,8 @@ module.exports = basePath => {
 
   config.charge_url    = config.charge_url   || process.env.CHARGE_URL    || 'http://localhost:9112'
   config.charge_token  = config.charge_token || process.env.CHARGE_TOKEN
+  config.mock_charge   = (config.mock_charge !== undefined) ? config.mock_charge
+                       : (config.charge_url === 'mock' || process.env.MOCK_CHARGE === '1' || (!config.charge_token && config.charge_url === 'http://localhost:9112'))
 
   config.invoice_ttl   = config.invoice_ttl  || +process.env.INVOICE_TTL  || 3600   // 1 hour
   config.download_ttl  = config.download_ttl || +process.env.DOWNLOAD_TTL || 172800 // 2 days
